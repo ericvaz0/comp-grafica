@@ -37,8 +37,8 @@ int winding(int i, int j, int* pontos, int N, int mod){
 
 //Esta função recebe um número variável argumentos:
 //Os primeiros dois argumentos são a altura e largura da imagem a ser gerada.
-//Em seguida, escreva um número par de inteiros no formato i1, j1, i2, j2, .... Estas são as coordenadas de um polígono.
-//Opcionalmente, um argumento adicional é um inteiro que determina o modo de preenchimento do polígono (dois por padrão)
+//Em seguida, escreva um número par de inteiros no formato i1, j1, i2, j2, .... Estas são as coordenadas dos vértices de um polígono.
+//Opcionalmente, adicione em seguida um inteiro que servirá como módulo para o número de revoluções (2 por padrão)
 //No fim, escreva o endereço da imagem a ser salva.
 void main(int argc, char **argv){
   int i, j, k;
