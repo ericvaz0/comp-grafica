@@ -38,7 +38,7 @@ int winding(int i, int j, int* pontos, int N, int mod){
 //Esta função recebe um número variável argumentos:
 //Os primeiros dois argumentos são a altura e largura da imagem a ser gerada.
 //Em seguida, escreva um número par de inteiros no formato i1, j1, i2, j2, .... Estas são as coordenadas de um polígono.
-//Opcionalmente, um argumento adicional é um inteiro que determina o modo de preenchimento do polígono (zero por padrão)
+//Opcionalmente, um argumento adicional é um inteiro que determina o modo de preenchimento do polígono (dois por padrão)
 //No fim, escreva o endereço da imagem a ser salva.
 void main(int argc, char **argv){
   int i, j, k;
@@ -53,7 +53,7 @@ void main(int argc, char **argv){
     pontos[2*k+1] = atoi(argv[3 + 2*k + 1]);
   }
 
-  int mod = argc%2 == 0? 0 : atoi(argv[argc-2]);
+  int mod = argc%2 == 0? 2 : atoi(argv[argc-2]);
 
   FILE *fp;
 
