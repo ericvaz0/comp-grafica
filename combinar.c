@@ -19,12 +19,12 @@ double f(double x){
 double mask(double x, double a, double b){
   return x < a ? 0 : (x > b ? 1 : f((x-a)/(b-a)));
 }
+
 struct pixel {
   unsigned char r;
   unsigned char g;
   unsigned char b;
 };
-
 typedef struct pixel pixel;
 
 struct image {
@@ -32,8 +32,50 @@ struct image {
   unsigned h;
   pixel* pixels;
 };
-
 typedef struct image image;
+
+struct matrix {
+  double a;
+  double b;
+  double c;
+  double d;
+};
+typedef struct matrix matrix;
+
+struct vector
+{
+  double x;
+  double y;
+};
+typedef struct vector vector;
+
+double matrixDet(matrix* A){
+  return A->a*A->d - A->b*A->c;
+}
+
+matrix matrixInv(matrix* A){
+  double I = matrixDet(A);
+  I = I == 0? 1 : 1.0/I;
+
+  
+  return (matrix){I*(A->d), -I*(A->b), -I*(A->c), I*(A->a)};
+}
+
+vector matrixProdVector(matrix* A, vector* u){
+  return (vector){(A->a)*(u->x) + (A->b)*(u->y), (A->c)*(u->x) + (A->d)*(u->y)};
+}
+
+matrix matrixProdMatrix(matrix* A, matrix* B){
+  return (matrix){(A->a)*(B->a) + (A->b)*(B->c), (A->a)*(B->b) + (A->b)*(B->d), (A->c)*(B->a) + (A->d)*(B->c), (A->c)*(B->b) + (A->d)*(B->d)};
+}
+
+vector vectorSum(vector* u, vector* v){
+  return (vector){u->x + v->x, u->y + v->y};
+}
+
+vector vectorSub(vector* u, vector* v){
+  return (vector){u->x - v->x, u->y - v->y};
+}
 
 void inicImage(image* img, unsigned w, unsigned h){
   img->w = w;
@@ -93,21 +135,47 @@ void setPixel(image* img, unsigned x, unsigned y, pixel pix){
   (img->pixels)[y*(img->w) + x] = pix;
 }
 
-image affineTransform(image* img, double O1, double O2, double A1, double A2, double B1, double B2){
+matrix fit3Points(vector* A0, vector* B0, vector* C0, vector* A1, vector* B1, vector* C1){
+  vector u0 = vectorSub(B0, A0);
+  vector v0 = vectorSub(C0, A0);
+  vector u1 = vectorSub(B1, A1);
+  vector v1 = vectorSub(C1, A1);
+
+  matrix M0 = (matrix){u0.x, v0.x, u0.y, v0.y};
+  matrix M1 = (matrix){u1.x, v1.x, u1.y, v1.y};
+  matrix M2 = matrixInv(&M1);
+
+  matrix M3 = matrixProdMatrix(&M2, &M1);
+  matrix M4 = matrixProdMatrix(&M3, &M0);
+
+  printf("%f, %f\n%f, %f\n\n", M3.a, M3.b, M3.c, M3.d);
+  printf("%f, %f\n%f, %f\n\n", M4.a, M4.b, M4.c, M4.d);
+  printf("%f, %f\n%f, %f", M0.a, M0.b, M0.c, M0.d);
+
+
+  return matrixProdMatrix(&M0, &M2);
+}
+
+image affineTransform(image* img, vector* O, matrix* T){
   unsigned w = img->w;
   unsigned h = img->h;
+
+  matrix inverseT = matrixInv(T);
 
   image img2;
   inicImage(&img2, w, h);
 
   unsigned x, y;
   unsigned x1, y1;
+  vector u;
   for(x = 0; x < w; x++){
     for(y = 0; y < h; y++){
-      x1 = (unsigned) ((x - O1)*A1 + (y - O2)*A2 + O1);
-      y1 = (unsigned) ((x - O1)*B1 + (y - O2)*B2 + O2);
+      u = (vector){x,y};
+      u = vectorSub(&u, O);
+      u = matrixProdVector(&inverseT, &u);
+      u = vectorSum(&u, O);
 
-      setPixel(&img2, x, y, getPixel(img, x1, y1));
+      setPixel(&img2, x, y, getPixel(img, u.x, u.y));
     }
   }
 
@@ -159,15 +227,12 @@ void overlaySmooth(image* img1, image* img2, int x0, int y0, int center, unsigne
 void main(int argc, char **argv){
   image img1;
   loadImage(&img1, argv[1]);
-  image img2;
-  loadImage(&img2, argv[2]);
-  image img3 = affineTransform(&img2, 440, 390, 0.9, 0, -0.01, 0.9);
+  matrix A = fit3Points(&(vector){68, 30}, &(vector){24, 24}, &(vector){35, 79}, &(vector){68, 30}, &(vector){34, 17}, &(vector){28, 90});
+  image img2 = affineTransform(&img1, &(vector){68, 30}, &A);
 
-  overlaySmooth(&img1, &img3, -150, -70, 290, 100, mask);
 
-  saveImage(&img1, argv[3]);
+  saveImage(&img2, argv[2]);
 
   destImage(&img1);
   destImage(&img2);
-  destImage(&img3);
 }
