@@ -1,6 +1,7 @@
 #ifndef GTOOLS   /* Include guard */
 #define GTOOLS
 
+
 struct pixel {
   unsigned char r;
   unsigned char g;
@@ -62,9 +63,13 @@ pixel getPixel(image* img, unsigned x, unsigned y);
 
 void setPixel(image* img, unsigned x, unsigned y, pixel pix);
 
+pixel pixelScale(pixel* pix, double w);
+
 matrix fit3Points(vector* A0, vector* B0, vector* C0, vector* A1, vector* B1, vector* C1);
 
 image affineTransform(image* img, vector* O, matrix* T);
+
+image affineTransformWeighted(image* img, vector* O, matrix* T);
 
 pixel avgPixel(pixel pix1, pixel pix2, double w);
 

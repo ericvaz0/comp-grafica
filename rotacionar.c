@@ -5,25 +5,31 @@
 #include "graphic_tools.h"
 
 void main(int argc, char **argv){
+  unsigned x, y;
+
   image img1;
   loadImage(&img1, argv[1]);
   matrix A;
   image img2;
+  image img3;
+  image img4;
 
-  char path[9] = "out0.ppm";
+  inicImage(&img2, img1.w*2, img1.h*2);
   
-  double angle = M_PI/8;
-  
-  unsigned k = 0;
-  for(k = 0; k < 17; k++){
-    A = (matrix){cos(angle*k), -sin(angle*k), sin(angle*k), cos(angle*k)};
-    img2 = affineTransform(&img1, &(vector){img1.w/2, img1.h/2}, &A);
-
-    path[3] = 97 + k;
-    saveImage(&img2, path);
+  for(x = 0; x < img1.w; x++){
+    for(y = 0; y < img1.h; y++){
+      setPixel(&img2, (img1.w+1)/2 + x, (img1.h+1)/2 + y, getPixel(&img1, x, y));
+    }
   }
-  
 
+  matrix T = {2.7, 0, 0, 1.75};
+  img3 = affineTransform(&img2, &(vector){(img2.w+1)/2, (img2.h+1)/2}, &T);
+  img4 = affineTransformWeighted(&img2, &(vector){(img2.w+1)/2, (img2.h+1)/2}, &T);
+
+  saveImage(&img3, argv[2]);
+  saveImage(&img4, argv[3]);
   destImage(&img1);
   destImage(&img2);
+  destImage(&img3);
+  destImage(&img4);
 }

@@ -5,6 +5,7 @@
 long min(long a, long b){
   return a < b ? a : b;
 }
+
 long max(long a, long b){
   return a > b ? a : b;
 }
@@ -47,6 +48,14 @@ vector vectorSum(vector* u, vector* v){
 
 vector vectorSub(vector* u, vector* v){
   return (vector){u->x - v->x, u->y - v->y};
+}
+
+pixel pixelScale(pixel* pix, double w){
+  unsigned char r = w*pix->r;
+  unsigned char g = w*pix->g;
+  unsigned char b = w*pix->b;
+
+  return (pixel){r, g, b}; 
 }
 
 void inicImage(image* img, unsigned w, unsigned h){
@@ -140,6 +149,44 @@ image affineTransform(image* img, vector* O, matrix* T){
   unsigned x, y;
   unsigned x1, y1;
   vector u;
+
+  for(x = 0; x < w; x++){
+    for(y = 0; y < h; y++){
+      u = (vector){x,y};
+      u = vectorSub(&u, O);
+      u = matrixProdVector(&inverseT, &u);
+      u = vectorSum(&u, O);
+      setPixel(&img2, x, y, getPixel(img, u.x, u.y));
+    }
+  }
+
+  return img2;
+}
+
+image affineTransformWeighted(image* img, vector* O, matrix* T){
+  unsigned w = img->w;
+  unsigned h = img->h;
+
+  matrix inverseT = matrixInv(T);
+
+  image img2;
+  inicImage(&img2, w, h);
+
+  unsigned x, y;
+  unsigned x1, y1;
+  vector u;
+
+
+  pixel pix;
+  pixel pix1;
+  pixel pix2;
+  pixel pix3;
+  pixel pix4;
+
+  double w1;
+  double w2;
+  double ww;
+
   for(x = 0; x < w; x++){
     for(y = 0; y < h; y++){
       u = (vector){x,y};
@@ -147,7 +194,24 @@ image affineTransform(image* img, vector* O, matrix* T){
       u = matrixProdVector(&inverseT, &u);
       u = vectorSum(&u, O);
 
-      setPixel(&img2, x, y, getPixel(img, u.x, u.y));
+      pix1 = getPixel(img, floor(u.x), floor(u.y));
+      pix2 = getPixel(img, floor(u.x), ceil(u.y));
+      pix3 = getPixel(img, ceil(u.x), floor(u.y));
+      pix4 = getPixel(img, ceil(u.x), ceil(u.y));
+
+      w1 = u.x - floor(u.x);
+      w2 = u.y - floor(u.y);
+
+      ww = (w1 + w2)/2;
+
+      pix1 = pixelScale(&pix1, 1-ww);
+      pix2 = pixelScale(&pix2, 1-w1);
+      pix3 = pixelScale(&pix3, w2);
+      pix4 = pixelScale(&pix4, ww);
+
+      pix = (pixel){pix1.r+pix2.r+pix3.r+pix4.r, pix1.g+pix2.g+pix3.g+pix4.g, pix1.b+pix2.b+pix3.b+pix4.b};
+
+      setPixel(&img2, x, y, pix);
     }
   }
 
