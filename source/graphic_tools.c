@@ -65,6 +65,7 @@ void inicImage(image* img, unsigned w, unsigned h){
 void inicImageP(imageP* img, unsigned w, unsigned h, unsigned n){
   img->w = w;
   img->h = h;
+  img->n = n;
   img->palette = (pixel*)calloc(n, sizeof(pixel));
   img->pixelIndices = (unsigned*)calloc(w*h, sizeof(unsigned));
 };
@@ -105,22 +106,24 @@ int loadImage(image* img, char* path){
   fclose(fp);
 }
 
-imageP imageToImageP(image* img0, unsigned Q, int mode){
+imageP imageToImageP(image* img0, unsigned Q){
   imageP img1;
 
   unsigned w = img0->w;
   unsigned h = img0->h;
   inicImageP(&img1, w, h, Q*Q*Q);
   
-  if(mode == 0){
-    setNaivePalette(&img1, Q);
-  }
-  else{
-    setQuantilesPalette(img0, &img1, Q);
-  }
-  
+  setNaivePalette(&img1, Q);
 
-  unsigned n = img1.n;
+  updatePixelIndices(&img1, img0);
+
+  return img1;
+}
+
+void updatePixelIndices(imageP* img1, image* img0){
+  unsigned w = img1->w;
+  unsigned h = img1->h;
+  unsigned n = img1->n;
   double min;
   double dist;
 
@@ -135,7 +138,7 @@ imageP imageToImageP(image* img0, unsigned Q, int mode){
       for(k = 0; k < n; k++){
 
         pix0 = getPixel(img0, x, y);
-        pix1 = img1.palette[k];
+        pix1 = img1->palette[k];
         dist = pixelDistance(&pix0, &pix1, 0);
         if(k == 0 || dist < min){
           min = dist;
@@ -143,12 +146,10 @@ imageP imageToImageP(image* img0, unsigned Q, int mode){
         }
       }
       
-      setPixelIndex(&img1, x, y, pixelIndex);
+      setPixelIndex(img1, x, y, pixelIndex);
       
     }
-  }
-
-  return img1;
+  } 
 }
 
 image imagePToImage(imageP* img0){
@@ -183,32 +184,12 @@ void setNaivePalette(imageP* img, unsigned Q){
   }
 }
 
-void setQuantilesPalette(image* img0, imageP* img1, unsigned Q){
-  img1->n = Q*Q*Q;
-  unsigned redHistogram[256];
-  unsigned greenHistogram[256];
-  unsigned blueHistogram[256];
+void setRandomPalette(imageP* img){
+  unsigned n = img->n;
 
-  histogram(img0, redHistogram, blueHistogram, greenHistogram);
-
-  unsigned redQuantiles[Q+1];
-  unsigned greenQuantiles[Q+1];
-  unsigned blueQuantiles[Q+1];
-  
-  getQuantiles(redHistogram, 256, img0->w*img0->h, Q, redQuantiles);
-  getQuantiles(greenHistogram, 256, img0->w*img0->h, Q, greenQuantiles);
-  getQuantiles(blueHistogram, 256, img0->w*img0->h, Q, blueQuantiles);
-
-  unsigned i, j, k;
-  pixel pix;
-
-  for(i = 0; i < Q; i++){
-    for(j = 0; j < Q; j++){
-      for(k = 0; k < Q; k++){
-        pix = (pixel){(redQuantiles[i] + redQuantiles[i+1])/2, (greenQuantiles[j] + greenQuantiles[j+1])/2, (blueQuantiles[k] + blueQuantiles[k+1])/2};
-        img1->palette[i*Q*Q + j*Q + k] = pix;
-      }
-    }
+  unsigned k;
+  for(k = 0; k < n; k++){
+    img->palette[k] = (pixel){rand(), rand(), rand()};
   }
 }
 
@@ -234,11 +215,15 @@ unsigned getPixelIndex(imageP* img, unsigned x, unsigned y){
   return (img->pixelIndices)[y*(img->w) + x];
 }
 
-void setPixel(image* img, unsigned x, unsigned y, pixel pix){
-  (img->pixels)[y*(img->w) + x] = pix;
+void setPixel(image* img, int x, int y, pixel pix){
+  if(x >= 0 && x <= img->w && y >= 0 && y <= img->h){
+    (img->pixels)[y*(img->w) + x] = pix;
+  }
 }
-void setPixelIndex(imageP* img, unsigned x, unsigned y, unsigned index){
-  (img->pixelIndices)[y*(img->w) + x] = index;
+void setPixelIndex(imageP* img, int x, int y, unsigned index){
+  if(x >= 0 && x <= img->w && y >= 0 && y <= img->h){
+    (img->pixelIndices)[y*(img->w) + x] = index;
+  }
 }
 
 //dados dois conjuntos de pontos no plano {A0, B0, C0} e {A1, B1, C1}, esta função retorna
@@ -441,9 +426,9 @@ void histogram(image* img, unsigned redHist[256], unsigned greenHist[256], unsig
     for(y = 0; y < h; y++){
       pix = getPixel(img, x, y);
 
-      redHist[pix.r]++;
-      blueHist[pix.g]++;
-      greenHist[pix.b]++;
+      redHist[(int)pix.r]++;
+      blueHist[(int)pix.g]++;
+      greenHist[(int)pix.b]++;
     }
   }
 }
@@ -468,27 +453,127 @@ void sort(unsigned* array, unsigned len, unsigned* sortedIndices){
   }
 }
 
-void getQuantiles(unsigned* array, unsigned len, unsigned total, unsigned n, unsigned* quantiles){
+void centroidIteration(imageP* img, image* img0){
+  unsigned n = img->n;
+  unsigned w = img->w;
+  unsigned h = img->h;
+
+  unsigned long* points = calloc(3*n, sizeof(unsigned long));
+  unsigned *counters = calloc(n, sizeof(unsigned));
   
+  unsigned x, y, k, i;
+  pixel pix;
 
-  unsigned quant = total/n;
-  unsigned sum0 = 0;
-  unsigned sum = 0;
+  for(x = 0; x < w; x++){
+    for(y = 0; y < h; y++){
+      i = getPixelIndex(img, x, y);
+      pix = getPixel(img0, x, y);
+      points[3*i] += pix.r;
+      points[3*i + 1] += pix.g;
+      points[3*i + 2] += pix.b;
 
+      counters[i]++;
+    }
+  }
+
+  for(k = 0; k < n; k++){
+    points[3*k] = (unsigned long) (points[3*k] / ((double) counters[k]));
+    points[3*k + 1] = (unsigned long) (points[3*k + 1] / ((double) counters[k]));
+    points[3*k + 2] = (unsigned long) (points[3*k + 2] / ((double) counters[k]));
+
+    img->palette[k] = (pixel){points[3*k], points[3*k + 1], points[3*k + 2]};
+  }
+
+  free(points);
+  free(counters);
+}
+
+void fillImage(image* img, pixel pix){
+  unsigned w = img->w;
+  unsigned h = img->h;
+  unsigned x, y;
+
+  for(x = 0; x < w; x++){
+    for(y = 0; y < h; y++){
+      setPixel(img, x, y, pix);
+    }
+  }
+}
+
+void drawDisk(image* img, int x0, int y0, int r, pixel pix){
+  int x, y;
+  int rr = r*r;
+
+  for(x = x0-r; x < x0+r; x++){
+    for(y = y0-r; y < y0+r; y++){
+      if(pow(x - x0, 2) + pow(y - y0, 2) <= rr){
+        setPixel(img, x, y, pix);
+      }
+    }
+  }
+}
+
+void copyImage(image* img1, image* img0){
+  unsigned w = img0->w;
+  unsigned h = img0->h;
+  unsigned x, y;
+
+  inicImage(img1, w, h);
+
+  for(x = 0; x < w; x++){
+    for(y = 0; y < h; y++){
+      setPixel(img1, x, y, getPixel(img0, x, y));
+    }
+  }
+}
+
+void Histogram2D(image* img, image* hist){
+  inicImage(hist, 768, 256);
+  fillImage(hist, (pixel){255, 255, 255});
+
+  unsigned w = img->w;
+  unsigned h = img->h;
+
+  unsigned char r, g, b;
+
+  pixel pix;
+
+  unsigned x, y;
+
+  for(x = 0; x < w; x++){
+    for(y = 0; y < h; y++){
+      pix = getPixel(img, x, y);
+      r = pix.r;
+      g = pix.g;
+      b = pix.b;
+
+      setPixel(hist, r, g, (pixel){r,g,0});
+      setPixel(hist, r + 256, b, (pixel){r,0,b});
+      setPixel(hist, g + 512, b, (pixel){0,g,b});
+    }
+  }
+}
+
+void PHistogram2D(imageP* img1, image* img0, image* hist, image* hist0, int mode){
+  copyImage(hist, hist0);
+  
+  unsigned n = img1->n;
+
+  pixel pix;
   unsigned k;
-  unsigned q = 1;
 
-  for(k = 0; k < len; k++){
-    sum += array[k];
-    if(sum > quant*q){
-      quantiles[q] = k;
-      sum0 = sum;
-      q++;
-    }
-    if(q == n){
-      quantiles[0] = 0;
-      quantiles[n] = len-1;
-      return;
-    }
+  unsigned char r, g, b;
+  for(k = 0; k < n; k++){
+    pix = img1->palette[k];
+    r = pix.r;
+    g = pix.g;
+    b = pix.b;
+
+    drawDisk(hist, r, g, 12, (pixel){255,255,255});
+    drawDisk(hist, r, g, 10, (pixel){r,g,0});
+    drawDisk(hist, r + 256, b, 12, (pixel){255,255,255});
+    drawDisk(hist, r + 256, b, 10, (pixel){r,0,b});
+    drawDisk(hist, g + 512, b, 12, (pixel){255,255,255});
+    drawDisk(hist, g + 512, b, 10, (pixel){0,g,b});
   }
 }

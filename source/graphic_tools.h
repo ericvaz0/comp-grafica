@@ -69,22 +69,24 @@ void destImageP(imageP* img);
 
 int loadImage(image* img, char* path);
 
-imageP imageToImageP(image* img0, unsigned Q, int mode);
+imageP imageToImageP(image* img0, unsigned Q);
 
 image imagePToImage(imageP* img0);
 
+void updatePixelIndices(imageP* img1, image* img0);
+
 void setNaivePalette(imageP* img, unsigned Q);
 
-void setQuantilesPalette(image* img0, imageP* img1, unsigned Q);
+void setRandomPalette(imageP* img);
 
 int saveImage(image* img, char* path);
 
 pixel getPixel(image* img, unsigned x, unsigned y);
 unsigned getPixelIndex(imageP* img, unsigned x, unsigned y);
 
-void setPixel(image* img, unsigned x, unsigned y, pixel pix);
+void setPixel(image* img, int x, int y, pixel pix);
 
-void setPixelIndex(imageP* img, unsigned x, unsigned y, unsigned index);
+void setPixelIndex(imageP* img, int x, int y, unsigned index);
 
 pixel pixelScale(pixel* pix, double w);
 
@@ -102,7 +104,11 @@ image plotFunction(unsigned w, unsigned h, pixel (*f) (unsigned, unsigned));
 
 void histogram(image* img, unsigned redHist[256], unsigned blueHist[256], unsigned greenHist[256]);
 
-void sort(unsigned* array, unsigned len, unsigned* sortedIndices);
+void centroidIteration(imageP* img, image* img0);
 
-void getQuantiles(unsigned* array, unsigned len, unsigned total, unsigned n, unsigned* quantiles);
+void fillImage(image* img, pixel pix);
+
+void Histogram2D(image* img, image* hist);
+
+void PHistogram2D(imageP* img1, image* img0, image* hist, image* hist0, int mode);
 #endif
