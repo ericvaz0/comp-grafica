@@ -106,14 +106,19 @@ int loadImage(image* img, char* path){
   fclose(fp);
 }
 
-imageP imageToImageP(image* img0, unsigned Q){
+imageP imageToImageP(image* img0, unsigned Q, int mode){
   imageP img1;
 
   unsigned w = img0->w;
   unsigned h = img0->h;
   inicImageP(&img1, w, h, Q*Q*Q);
   
-  setNaivePalette(&img1, Q);
+  if(mode == 0){
+    setNaivePalette(&img1, Q);
+  }
+  else if(mode == 1){
+    setRandomPalette(&img1);
+  }
 
   updatePixelIndices(&img1, img0);
 
@@ -486,6 +491,8 @@ void centroidIteration(imageP* img, image* img0){
 
   free(points);
   free(counters);
+
+  updatePixelIndices(img, img0);
 }
 
 void fillImage(image* img, pixel pix){
@@ -554,7 +561,7 @@ void Histogram2D(image* img, image* hist){
   }
 }
 
-void PHistogram2D(imageP* img1, image* img0, image* hist, image* hist0, int mode){
+void PHistogram2D(imageP* img1, image* hist, image* hist0){
   copyImage(hist, hist0);
   
   unsigned n = img1->n;

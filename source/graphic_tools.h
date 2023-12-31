@@ -69,7 +69,7 @@ void destImageP(imageP* img);
 
 int loadImage(image* img, char* path);
 
-imageP imageToImageP(image* img0, unsigned Q);
+imageP imageToImageP(image* img0, unsigned Q, int mode);
 
 image imagePToImage(imageP* img0);
 
@@ -110,5 +110,5 @@ void fillImage(image* img, pixel pix);
 
 void Histogram2D(image* img, image* hist);
 
-void PHistogram2D(imageP* img1, image* img0, image* hist, image* hist0, int mode);
+void PHistogram2D(imageP* img1, image* hist, image* hist0);
 #endif
