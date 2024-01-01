@@ -3,18 +3,22 @@
 #include <math.h>
 #include "graphic_tools.h"
 
+//Retorna o menor entre dois longs
 long min(long a, long b){
   return a < b ? a : b;
 }
 
+//Retorna o maior entre dois longs
 long max(long a, long b){
   return a > b ? a : b;
 }
 
+//Retorna o determinante de uma matriz 2x2
 double matrixDet(matrix* A){
   return A->a*A->d - A->b*A->c;
 }
 
+//Inversa de uma matriz 2x2. Quando a matriz não é invertível, retorna a transposta da matriz de cofatores
 matrix matrixInv(matrix* A){
   double I = matrixDet(A);
   I = I == 0? 1 : 1.0/I;
@@ -23,22 +27,27 @@ matrix matrixInv(matrix* A){
   return (matrix){I*(A->d), -I*(A->b), -I*(A->c), I*(A->a)};
 }
 
+//Retorna o vetor Au, produto da matriz A pelo vetor u
 vector matrixProdVector(matrix* A, vector* u){
   return (vector){(A->a)*(u->x) + (A->b)*(u->y), (A->c)*(u->x) + (A->d)*(u->y)};
 }
 
+//Retorna a matriz AB, produto da matriz A pela matriz B
 matrix matrixProdMatrix(matrix* A, matrix* B){
   return (matrix){(A->a)*(B->a) + (A->b)*(B->c), (A->a)*(B->b) + (A->b)*(B->d), (A->c)*(B->a) + (A->d)*(B->c), (A->c)*(B->b) + (A->d)*(B->d)};
 }
 
+//Retorna o vetor u+v, soma do vetor u com o vetor v
 vector vectorSum(vector* u, vector* v){
   return (vector){u->x + v->x, u->y + v->y};
 }
 
+//Retorna o vetor u-v, diferença do vetor u com o vetor v
 vector vectorSub(vector* u, vector* v){
   return (vector){u->x - v->x, u->y - v->y};
 }
 
+//Retorna o pixel pix reescalado por um fator de w
 pixel pixelScale(pixel* pix, double w){
   unsigned char r = w*pix->r;
   unsigned char g = w*pix->g;
@@ -47,6 +56,9 @@ pixel pixelScale(pixel* pix, double w){
   return (pixel){r, g, b}; 
 }
 
+//Retorna distância entre os pixels pix1 e pix2 em R^3.
+//Se metric == 0, utiliza-se a metrica da soma
+//Caso contrário, utiliza-se a métrica Euclidiana
 double pixelDistance(pixel* pix1, pixel* pix2, int metric){
   if(metric == 0){
     return abs((int)pix1->r - (int)pix2->r) + abs((int)pix1->g - (int)pix2->g) + abs((int)pix1->b - (int)pix2->b);
@@ -57,11 +69,13 @@ double pixelDistance(pixel* pix1, pixel* pix2, int metric){
 
 }
 
+//Inicia um struct image. Matriz de pixels é alocada e zerada
 void inicImage(image* img, unsigned w, unsigned h){
   img->w = w;
   img->h = h;
   img->pixels = (pixel*)calloc(w*h, sizeof(pixel));
 };
+//Inicia um struct imageP. Paleta e array de pixels é alocada e zerada.
 void inicImageP(imageP* img, unsigned w, unsigned h, unsigned n){
   img->w = w;
   img->h = h;
@@ -70,61 +84,80 @@ void inicImageP(imageP* img, unsigned w, unsigned h, unsigned n){
   img->pixelIndices = (unsigned*)calloc(w*h, sizeof(unsigned));
 };
 
+//Libera a memória alocada por inicImage
 void destImage(image* img){
   free(img->pixels);
 }
+//Libera a memória alocada por inicImageP
 void destImageP(imageP* img){
   free(img->palette);
   free(img->pixelIndices);
 }
 
+//Carrega uma imagem .ppm modo P6 de endereço path em um struct image apontado por img
 int loadImage(image* img, char* path){
+  //Abre o arquivo path
   FILE *fp;
-  
   fp = fopen(path, "rb");
+
   unsigned char type, colorMax, c;
   unsigned w, h;
 
-
+  //Ignora comentários
   while ((c=getc(fp))=='#')
     while((c=getc(fp))!='\n');
   ungetc(c,fp);
 
+  //Lê o modo (Apenas P6 é permitido)
   fscanf(fp, "P%hhu\n", &type);
   while ((c=getc(fp))=='#')
     while((c=getc(fp))!='\n');
   ungetc(c,fp);
-
   if(type != 6) return 0;
-  
+
+  //Lê as dimensões da imagem e a cor máxima (Apenas 255 de colormax é permitido)
   fscanf(fp, "%u %u\n%hhu\n", &w, &h, &colorMax);
   if(colorMax != 255) return 0;
 
-
+  //Inicia a imagem, alocando memória adequada para as suas dimensões
   inicImage(img, w, h);
+
+  //Carrega os pixels e fecha o arquivo
   size_t k = fread(img->pixels, 1, (img->w)*(img->h)*3, fp);
   fclose(fp);
 }
 
-imageP imageToImageP(image* img0, unsigned Q, int mode){
+//Recebe um struct image apontado por img0 e retorna uma aproximação com paleta de n, em formato imageP
+//Se mode == 0, a paleta é formada subdividindo o cubo de cores [0,255]^3 em n subcubos iguais e escolhendo
+//seus centros para as cores da paleta
+//Se mode == 1, a paleta é formada por n cores aleatórias
+imageP imageToImageP(image* img0, unsigned n, int mode){
   imageP img1;
 
   unsigned w = img0->w;
   unsigned h = img0->h;
-  inicImageP(&img1, w, h, Q*Q*Q);
+
+  //Inicia um struct imageP, alocando toda a memória necessária.
+  //Se a função recebe uma imageP já alocada, sua memória é desalocada para evitar vazamentos de memória
+  destImageP(&img1);
+  inicImageP(&img1, w, h, n);
   
+  //Constrói as paletas
   if(mode == 0){
+    unsigned Q = round(cbrt(n));
     setNaivePalette(&img1, Q);
   }
   else if(mode == 1){
     setRandomPalette(&img1);
   }
 
+  //Aproxima cada pixel com a cor mais próxima (Em relação a distância Euclidiana) na paleta
   updatePixelIndices(&img1, img0);
 
   return img1;
 }
 
+//Atualiza os índices de uma imagem de paleta reduzida (apontada por img1) através da imagem original (apontada por img0)
 void updatePixelIndices(imageP* img1, image* img0){
   unsigned w = img1->w;
   unsigned h = img1->h;
@@ -138,13 +171,17 @@ void updatePixelIndices(imageP* img1, image* img0){
   
   pixel pix0, pix1;
 
+  //Para cada pixel, itera por todas as cores da paleta buscando a menor distância Euclidiana.
+  //O pixel recebe o índice da cor mais próxima presenta na paleta
   for(x = 0; x < w; x++){
     for(y = 0; y < h; y++){
       for(k = 0; k < n; k++){
 
         pix0 = getPixel(img0, x, y);
         pix1 = img1->palette[k];
-        dist = pixelDistance(&pix0, &pix1, 0);
+
+        //A distância Euclidiana é utilizada por padrão (Um pouco ineficiente, possivelmente melhores resultados)
+        dist = pixelDistance(&pix0, &pix1, 1);
         if(k == 0 || dist < min){
           min = dist;
           pixelIndex = k;
@@ -157,14 +194,20 @@ void updatePixelIndices(imageP* img1, image* img0){
   } 
 }
 
+//Recebe uma imageP apontada por img0 e retorna seu bitmap correspondente, no formato image
 image imagePToImage(imageP* img0){
   image img1;
   unsigned w = img0->w;
   unsigned h = img0->h;
+
+  //Aloca a memória necessária
+  //Desaloca qualquer memória possivelmente já alocada para img1, evitando vazamentos de memória
+  destImage(&img1);
   inicImage(&img1, w, h);
 
   unsigned x, y;
 
+  //Cada pixel recebe a cor da paleta correspondente a seu índice
   for(x = 0; x < w; x++){
     for(y = 0; y < h; y++){
       setPixel(&img1, x, y, img0->palette[getPixelIndex(img0, x, y)]);
@@ -207,6 +250,138 @@ int saveImage(image* img, char* path){
   fclose(fp);
 }
 
+void breakBytes(unsigned char* array, unsigned char* array0, int l, int m){
+  unsigned j;
+  unsigned k;
+
+  int d;
+  int r;
+
+  for(k = 0; k < m; k++){
+    array[k] = 0;
+    for(j = 0; j < l; j++){
+      d = (k*l + j)/8;
+      r = (k*l + j)%8;
+      array[k] += r+l <= (1+j+7) ? ((1<<(7-r))&array0[d])>>((1+j+7)-r-l) : ((1<<(7-r))&array0[d])<<((r+l)-(1+j+7));
+    }
+
+  }
+}
+
+void setBit(unsigned char* byte, unsigned char pos, unsigned char bit){
+  (*byte) &= ~(1<<pos);
+  (*byte) |= bit << pos;
+}
+
+unsigned char getBit(unsigned char* byte, unsigned char pos){
+  return ((*byte) & (1<<pos))>>pos;
+}
+
+void printByte(unsigned char* byte){
+  printf("%u%u%u%u%u%u%u%u\n", getBit(byte, 7), getBit(byte, 6), getBit(byte, 5), getBit(byte, 4),
+  getBit(byte, 3), getBit(byte, 2), getBit(byte, 1), getBit(byte, 0));
+}
+
+void joinBytes(unsigned char* array, unsigned char* array0, int l, int m){
+  int j;
+  int k;
+
+  int d;
+  int r;
+
+  unsigned N = ceil((m*l)/8.0);
+  for(k = 0; k < N; k++){
+    array[k] = 0;
+  }
+  for(k = 0; k < m; k++){
+    for(j = 0; j < l; j++){
+      d = (k*l + j)/8;
+      r = (k*l + j)%8;
+      setBit(&array[d], 7-r, getBit(&array0[k], l-1-j));
+    }
+    
+  }
+}
+
+int saveImageP(imageP* img, char* path){
+  unsigned m = img->w*img->h;
+  unsigned n = img->n;
+  unsigned l = ceil(log2(n));
+  unsigned N = ceil((m*l)/8.0);
+
+  unsigned char array[N];
+  unsigned char array0[m];
+
+  unsigned k;
+
+  for(k = 0; k < m; k++){
+    array0[k] = img->pixelIndices[k];
+  }
+
+  joinBytes(array, array0, l, m);
+
+  FILE *fp;
+  fp = fopen(path, "wb");
+  fprintf(fp, "P9\n");
+  fprintf(fp, "%u %u\n%u\n", img->w, img->h, n);
+  fwrite(img->palette, 1, 3*n, fp);
+  fwrite(array, 1, N, fp);
+  fclose(fp);
+}
+
+int loadImageP(imageP* img, char* path){
+  FILE *fp;
+  
+  fp = fopen(path, "rb");
+  unsigned char type, n, c;
+  unsigned w, h, k;
+
+
+  while ((c=getc(fp))=='#')
+    while((c=getc(fp))!='\n');
+  ungetc(c,fp);
+
+  fscanf(fp, "P%hhu\n", &type);
+  while ((c=getc(fp))=='#')
+    while((c=getc(fp))!='\n');
+  ungetc(c,fp);
+
+  if(type != 9) return 0;
+
+  char string[256];
+  for(k = 0; (c=getc(fp))!='\n'; k++){
+    string[k] = c;
+  }
+  string[k] = '\0';
+  sscanf(string, "%u %u", &w, &h);
+  
+  for(k = 0; (c=getc(fp))!='\n'; k++){
+    string[k] = c;
+  }
+  string[k] = '\0';
+  sscanf(string, "%u", &n);
+  
+  inicImageP(img, w, h, n);
+
+  fread(img->palette, 1, 3*n, fp);
+
+
+  unsigned m = img->w*img->h;
+  unsigned l = ceil(log2(n));
+  unsigned N = ceil((m*l)/8.0);
+  
+  unsigned char array0[N];
+  unsigned char array[m];
+
+  fread(array0, 1, N, fp);
+  fclose(fp);
+
+  breakBytes(array, array0, l, m);
+
+  for(k = 0; k < m; k++){
+    img->pixelIndices[k] = array[k];
+  }
+}
 pixel getPixel(image* img, unsigned x, unsigned y){
   if(x < 0 || y < 0 || x >= img->w || y >= img->h){
     return (pixel){0,0,0};

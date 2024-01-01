@@ -69,7 +69,7 @@ void destImageP(imageP* img);
 
 int loadImage(image* img, char* path);
 
-imageP imageToImageP(image* img0, unsigned Q, int mode);
+imageP imageToImageP(image* img0, unsigned n, int mode);
 
 image imagePToImage(imageP* img0);
 
@@ -80,6 +80,20 @@ void setNaivePalette(imageP* img, unsigned Q);
 void setRandomPalette(imageP* img);
 
 int saveImage(image* img, char* path);
+
+void setBit(unsigned char* byte, unsigned char pos, unsigned char bit);
+
+unsigned char getBit(unsigned char* byte, unsigned char pos);
+
+void printByte(unsigned char* byte);
+
+void breakBytes(unsigned char* array, unsigned char* array0, int l, int n);
+
+void joinBytes(unsigned char* array, unsigned char* array0, int l, int n);
+
+int saveImageP(imageP* img, char* path);
+
+int loadImageP(imageP* img, char* path);
 
 pixel getPixel(image* img, unsigned x, unsigned y);
 unsigned getPixelIndex(imageP* img, unsigned x, unsigned y);
