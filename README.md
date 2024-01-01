@@ -1,3 +1,3 @@
 # comp-grafica
 
-Algumas demonstrações de algorítimos de computação gráfia
+Algumas amostras de algorítimos de computação gráfia
